@@ -36,3 +36,4 @@ end, we decided to delete the bin/ folder each time before running the tests.
 
     Currently, we pass all unit and system tests, and there are no known
 issues with our code, except for the caching weirdness as described above.
+Please see the comments in our code for additional documentation.
