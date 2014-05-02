@@ -14,7 +14,6 @@ public class JoinPredicate implements Serializable {
     int m_field1;
     int m_field2;
     Predicate.Op m_op;
-
     /**
      * Constructor -- create a new predicate over two fields of two tuples.
      * 
@@ -44,10 +43,12 @@ public class JoinPredicate implements Serializable {
      */
     public boolean filter(Tuple t1, Tuple t2) {
         // some code goes here
+
         Field field1 = t1.getField(m_field1);
         Field field2 = t2.getField(m_field2);
 
         return field1.compare(m_op,field2);
+        return false;
     }
     
     public int getField1()

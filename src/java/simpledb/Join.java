@@ -177,6 +177,7 @@ public class Join extends Operator {
         // some code goes here
         m_child1 = children[0];
         m_child2 = children[1];
+
     }
 
 }
