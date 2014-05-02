@@ -41,6 +41,9 @@ public class IntegerAggregator implements Aggregator {
         m_average  = new HashMap<Field, Integer>();
     }
 
+    /** 
+     * Returns the initial aggregate value for a new grouping
+     */
     private int initial_value() {
         switch(m_op) {
             case MIN: return Integer.MAX_VALUE;
@@ -68,6 +71,7 @@ public class IntegerAggregator implements Aggregator {
         int val = m_grouping.get(key);
         int field_val = ((IntField) tup.getField(m_afield)).getValue();
 
+        // Update aggregate value according to operator
         switch(m_op) {
             case MIN:
                 if (field_val < val) { val = field_val; }
@@ -76,6 +80,8 @@ public class IntegerAggregator implements Aggregator {
                 if (field_val > val) { val = field_val; }
                 break;
             case AVG:
+                // Increment the value in the m_average hashmap,
+                // division will be taken care of in iterator()
                 if (!m_average.containsKey(key)) {
                     m_average.put(key, 1);
                 }
@@ -104,6 +110,7 @@ public class IntegerAggregator implements Aggregator {
     public DbIterator iterator() {
         TupleDesc td;
         Type[] types;
+        // Create our tuple desc
         if (m_gbfield == NO_GROUPING) {
             types = new Type[1];
             types[0] = Type.INT_TYPE;
@@ -112,21 +119,21 @@ public class IntegerAggregator implements Aggregator {
             types = new Type[2];
             types[0] = m_gbfieldtype;
             types[1] = Type.INT_TYPE;
-
-            //Type[] names = new Type[2];
-            //names
         }
         td = new TupleDesc(types);
 
         int val;
         Tuple tup;
         ArrayList<Tuple> tuples = new ArrayList<Tuple>();
+        // Populate our list with the aggregate values
         for (Field key : m_grouping.keySet()) {
             val = m_grouping.get(key);
+            // AVG division required
             if (m_op == Op.AVG) {
                 val /= m_average.get(key);
             }
             
+            // Create the tuple
             IntField field = new IntField(val);
             tup = new Tuple(td);
             if (m_gbfield == NO_GROUPING) {
