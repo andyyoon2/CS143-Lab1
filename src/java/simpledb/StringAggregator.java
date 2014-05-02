@@ -6,6 +6,10 @@ package simpledb;
 public class StringAggregator implements Aggregator {
 
     private static final long serialVersionUID = 1L;
+    private int m_gbfield;
+    private Type m_gbfieldtype;
+    private int m_afield;
+    private Op m_what;
 
     /**
      * Aggregate constructor
@@ -18,6 +22,13 @@ public class StringAggregator implements Aggregator {
 
     public StringAggregator(int gbfield, Type gbfieldtype, int afield, Op what) {
         // some code goes here
+        m_gbfield = gbfield;
+        m_gbfieldtype = gbfieldtype;
+        m_afield = afield;
+        m_what = what;
+        // Following @throws if != COUNT
+        if(!what.equals(Op.COUNT))
+            throw new IllegalArgumentException("String Aggregator only supports COUNT, Error!");
     }
 
     /**
