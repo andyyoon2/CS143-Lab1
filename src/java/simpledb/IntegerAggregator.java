@@ -12,9 +12,10 @@ public class IntegerAggregator implements Aggregator {
     private int m_gbfield;
     private Type m_gbfieldtype;
     private int m_afield;
-    private Op m_what;
+    private Op m_op;
 
-    private HashMap<Object, Integer> m_grouping; // Maps the group-by field to its aggregate value
+    private HashMap<Field, Integer> m_grouping; // Maps the group-by field to its aggregate value
+    private HashMap<Field, Integer> m_average;  // Keeps track of the number of ints to average
 
     /**
      * Aggregate constructor
@@ -35,12 +36,13 @@ public class IntegerAggregator implements Aggregator {
         m_gbfield = gbfield;
         m_gbfieldtype = gbfieldtype;
         m_afield = afield;
-        m_what = what;
-        m_grouping = new HashMap<Object, Integer>();
+        m_op = what;
+        m_grouping = new HashMap<Field, Integer>();
+        m_average  = new HashMap<Field, Integer>();
     }
 
     private int initial_value() {
-        switch(m_what) {
+        switch(m_op) {
             case MIN: return Integer.MAX_VALUE;
             case MAX: return Integer.MIN_VALUE;
             default: return 0; // SUM, AVG, COUNT
@@ -55,18 +57,40 @@ public class IntegerAggregator implements Aggregator {
      *            the Tuple containing an aggregate field and a group-by field
      */
     public void mergeTupleIntoGroup(Tuple tup) {
-        Object key;
-        if (m_gbfield == NO_GROUPING || m_gbfieldtype == null) { key = null; }
-        else { Object key = tup.getField(m_gbfield); }
+        Field key;
+        if (m_gbfield == NO_GROUPING) { key = null; }
+        else { key = tup.getField(m_gbfield); }
 
         if (!m_grouping.containsKey(key)) {
             // Haven't encountered this group value yet, create new grouping
             m_grouping.put(key, initial_value());
         }
         int val = m_grouping.get(key);
-        int field_val = key.getValue();
+        int field_val = ((IntField) tup.getField(m_afield)).getValue();
 
-
+        switch(m_op) {
+            case MIN:
+                if (field_val < val) { val = field_val; }
+                break;
+            case MAX:
+                if (field_val > val) { val = field_val; }
+                break;
+            case AVG:
+                if (!m_average.containsKey(key)) {
+                    m_average.put(key, 1);
+                }
+                else {
+                    int num_values = m_average.get(key);
+                    m_average.put(key, num_values+1);
+                }
+            case SUM:
+                val += field_val;
+                break;
+            case COUNT:
+                val++;
+                break;
+        }
+        m_grouping.put(key, val);
     }
 
     /**
@@ -78,9 +102,42 @@ public class IntegerAggregator implements Aggregator {
      *         the constructor.
      */
     public DbIterator iterator() {
-        // some code goes here
-        throw new
-        UnsupportedOperationException("please implement me for lab2");
-    }
+        TupleDesc td;
+        Type[] types;
+        if (m_gbfield == NO_GROUPING) {
+            types = new Type[1];
+            types[0] = Type.INT_TYPE;
+        }
+        else {
+            types = new Type[2];
+            types[0] = m_gbfieldtype;
+            types[1] = Type.INT_TYPE;
 
+            //Type[] names = new Type[2];
+            //names
+        }
+        td = new TupleDesc(types);
+
+        int val;
+        Tuple tup;
+        ArrayList<Tuple> tuples = new ArrayList<Tuple>();
+        for (Field key : m_grouping.keySet()) {
+            val = m_grouping.get(key);
+            if (m_op == Op.AVG) {
+                val /= m_average.get(key);
+            }
+            
+            IntField field = new IntField(val);
+            tup = new Tuple(td);
+            if (m_gbfield == NO_GROUPING) {
+                tup.setField(0, field);
+            }
+            else {
+                tup.setField(0, key);
+                tup.setField(1, field);
+            }
+            tuples.add(tup);
+        }
+        return new TupleIterator(td, tuples);
+    }
 }
