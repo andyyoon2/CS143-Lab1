@@ -136,9 +136,12 @@ public class HeapFile implements DbFile {
         
         // All pages are full
         // Append empty page to end of file
-        FileOutputStream fostream = new FileOutputStream(m_file, true);
-        fostream.write(HeapPage.createEmptyPageData());
-        fostream.close();
+        try {
+            FileOutputStream fostream = new FileOutputStream(m_file, true);
+            fostream.write(HeapPage.createEmptyPageData());
+            fostream.close();
+        }
+        catch (FileNotFoundException e) { System.out.println("File not found"); }
 
         // Retreive page
         pid = new HeapPageId(getId(), pnum);
