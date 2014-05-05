@@ -21,8 +21,6 @@ public class Filter extends Operator {
      *            The child operator
      */
     public Filter(Predicate p, DbIterator child) {
-
-        // some code goes here
         m_p = p;
         m_child = child;
     }
@@ -61,7 +59,6 @@ public class Filter extends Operator {
      */
     protected Tuple fetchNext() throws NoSuchElementException,
             TransactionAbortedException, DbException {
-        // some code goes here
         while (m_child.hasNext()) {
             Tuple t = m_child.next();
             if ( m_p.filter(t) ) { return t; }
@@ -78,7 +75,6 @@ public class Filter extends Operator {
 
     @Override
     public void setChildren(DbIterator[] children) {
-        // some code goes here
         if (m_child != children[0]) { m_child = children[0]; }
     }
 

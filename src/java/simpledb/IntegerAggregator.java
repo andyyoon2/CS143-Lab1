@@ -16,7 +16,8 @@ public class IntegerAggregator implements Aggregator {
 
     private HashMap<Field, Integer> m_grouping; // Maps the group-by field to its aggregate value
     private HashMap<Field, Integer> m_average;  // Keeps track of the number of ints to average
-
+    private String m_gname;                     // Name of the field we're grouping by
+    private String m_aname;                     // Name of the aggregate field
     /**
      * Aggregate constructor
      * 
@@ -39,6 +40,8 @@ public class IntegerAggregator implements Aggregator {
         m_op = what;
         m_grouping = new HashMap<Field, Integer>();
         m_average  = new HashMap<Field, Integer>();
+        m_gname = "";
+        m_aname = "";
     }
 
     /** 
@@ -60,9 +63,15 @@ public class IntegerAggregator implements Aggregator {
      *            the Tuple containing an aggregate field and a group-by field
      */
     public void mergeTupleIntoGroup(Tuple tup) {
+        // Initialize key,
+        //  field names for output tuple desc
         Field key;
         if (m_gbfield == NO_GROUPING) { key = null; }
-        else { key = tup.getField(m_gbfield); }
+        else { 
+            key = tup.getField(m_gbfield); 
+            m_gname = tup.getTupleDesc().getFieldName(m_gbfield);
+        }
+        m_aname = "Aggregate " + m_op.toString() + "(" + tup.getTupleDesc().getFieldName(m_afield) + ")";
 
         if (!m_grouping.containsKey(key)) {
             // Haven't encountered this group value yet, create new grouping
@@ -99,6 +108,7 @@ public class IntegerAggregator implements Aggregator {
         m_grouping.put(key, val);
     }
 
+
     /**
      * Create a DbIterator over group aggregate results.
      * 
@@ -108,19 +118,24 @@ public class IntegerAggregator implements Aggregator {
      *         the constructor.
      */
     public DbIterator iterator() {
-        TupleDesc td;
         Type[] types;
+        String[] names;
         // Create our tuple desc
         if (m_gbfield == NO_GROUPING) {
             types = new Type[1];
             types[0] = Type.INT_TYPE;
+            names = new String[1];
+            names[0] = m_aname;
         }
         else {
             types = new Type[2];
             types[0] = m_gbfieldtype;
             types[1] = Type.INT_TYPE;
+            names = new String[2];
+            names[0] = m_gname;
+            names[1] = m_aname;
         }
-        td = new TupleDesc(types);
+        TupleDesc td = new TupleDesc(types,names);
 
         int val;
         Tuple tup;
