@@ -103,8 +103,13 @@ public class HeapFile implements DbFile {
 
     // see DbFile.java for javadocs
     public void writePage(Page page) throws IOException {
-        // some code goes here
-        // not necessary for lab1
+        int pnum = page.getId().pageNumber();
+        try {
+            FileOutputStream fostream = new FileOutputStream(m_file);
+            fostream.write(page.getPageData(), BufferPool.PAGE_SIZE * pnum, BufferPool.PAGE_SIZE);
+            fostream.close();
+        }
+        catch (FileNotFoundException e) { System.out.println("File not found"); }
     }
 
     /**

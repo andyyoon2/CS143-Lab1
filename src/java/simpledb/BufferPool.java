@@ -40,7 +40,6 @@ public class BufferPool {
      * @param numPages maximum number of pages in this buffer pool.
      */
     public BufferPool(int numPages) {
-        // some code goes here
         cache = new HashMap<PageId, Page>();
         size = numPages;
     }
@@ -71,25 +70,21 @@ public class BufferPool {
      */
     public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
-        // some code goes here
-        //Search our hashmap, if we find a key, then we return the page
-
+        //Search our hashmap, if we find a key, then we return the page 
         if(cache.containsKey(pid))
             return cache.get(pid);
 
         //Otherwise we couldn't find the page in our buffer, so need to fetch them
         else {
-            if(cache.size() > (size-1)){
-                //Error if our buffer is full
-                throw new DbException("Buffer is full, error!");
+            if(cache.size() == size){
+                // Buffer is full, evict a page before adding
+                evictPage();
             }
-            else{
-                //Fetch the page in our catalog and return the page
-                DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
-                Page page = file.readPage(pid);
-                cache.put(pid, page);
-                return page;
-            }
+            //Fetch the page in our catalog and return the page
+            DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
+            Page page = file.readPage(pid);
+            cache.put(pid, page);
+            return page;
         }
     }
 
@@ -190,9 +185,9 @@ public class BufferPool {
      *     break simpledb if running in NO STEAL mode.
      */
     public synchronized void flushAllPages() throws IOException {
-        // some code goes here
-        // not necessary for lab1
-
+        for (PageId i : cache.keySet()) {
+            flushPage(i);
+        }
     }
 
     /** Remove the specific page id from the buffer pool.
@@ -210,8 +205,16 @@ public class BufferPool {
      * @param pid an ID indicating the page to flush
      */
     private synchronized  void flushPage(PageId pid) throws IOException {
-        // some code goes here
-        // not necessary for lab1
+        Page page = cache.get(pid);
+        TransactionId tid = page.isDirty();
+        // If page not found or page is clean, do nothing
+        if (page == null || tid == null) { return; }
+
+        // Write the page to disk
+        DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
+        file.writePage(page);
+        // Mark as not dirty
+        page.markDirty(false, tid);
     }
 
     /** Write all pages of the specified transaction to disk.
@@ -226,8 +229,23 @@ public class BufferPool {
      * Flushes the page to disk to ensure dirty pages are updated on disk.
      */
     private synchronized  void evictPage() throws DbException {
-        // some code goes here
-        // not necessary for lab1
+        boolean evicted = false;
+        Page page;
+        // Random replacement policy
+        for (PageId i : cache.keySet()) {
+            page = cache.get(i);
+            // Flush to disk, evict the page
+            try {
+                flushPage(i);
+                cache.remove(i);
+                evicted = true;
+                break;
+            }
+            catch (IOException e) { e.printStackTrace(); }
+        }
+        if (!evicted) {
+            throw new DbException("All pages are dirty, can't evict");
+        }
     }
 
 }
