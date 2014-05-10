@@ -1,6 +1,0 @@
-*.class
-*.swp
-#Package files#
-*.jar
-*.war
-*.ear
