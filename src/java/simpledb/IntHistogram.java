@@ -11,7 +11,7 @@ public class IntHistogram {
     private int m_max;
     private int m_width;
     private int m_tuples;
-    private HashMap<Integer, Integer> m_histogram;
+    private int[] m_histogram;
 
     /**
      * Create a new IntHistogram.
@@ -36,16 +36,16 @@ public class IntHistogram {
         m_tuples = 0;
         m_width = (max-min+1) / buckets;
         if (m_width == 0) { // more buckets than needed
-        //    m_width = 1;  // TODO: FIX FOR orderOfGrowth() test
+            m_width = 1;
         }
 
-        // Initialize hashmap
+        // Initialize main array
         // Last bucket holds overflow values
-        m_histogram = new HashMap<Integer, Integer>();
-        for (int i = 0; i <= buckets; i++) {
-            m_histogram.put(i, 0);
+        m_histogram = new int[buckets];
+        for (int i = 0; i < buckets; i++) {
+            m_histogram[i] = 0;
         }
-        System.out.format("\nNew histogram with %d buckets, width %d\n", m_buckets, m_width);
+        //System.out.format("\nNew histogram with %d buckets, width %d\n", m_buckets, m_width);
     }
 
     /**
@@ -56,12 +56,16 @@ public class IntHistogram {
         if (v > m_max || v < m_min) { //do nothing
             return;
         }
-        System.out.format("adding value %d ",v);
+        //System.out.format("adding value %d ",v);
         int bucket_num = (v-m_min) / m_width;
-        System.out.format("to bucketnum %d\n",bucket_num);
-        int curr_count = m_histogram.get(bucket_num);
-        System.out.format("curr_count:%d\n",curr_count+1);
-        m_histogram.put(bucket_num, curr_count+1);
+        if (bucket_num < m_buckets) {// Normal
+            //System.out.format("to bucketnum %d\n",bucket_num);
+            m_histogram[bucket_num] += 1;
+        } else {// Overflow, just add to last bucket
+            //System.out.format("to bucketnum %d\n",m_buckets-1);
+            m_histogram[m_buckets-1] += 1;
+        }
+        //System.out.format("curr_count:%d\n",m_histogram[bucket_num]);
         m_tuples++;
     }
 
@@ -76,31 +80,26 @@ public class IntHistogram {
      * @return Predicted selectivity of this particular operator and value
      */
     public double estimateSelectivity(Predicate.Op op, int v) {
-        int bucket_num;
-        int height = 0;
+        int bucket_num, height = 0;
         double contribution = 0;
         bucket_num = (v-m_min) / m_width;
-        if (m_histogram.get(bucket_num) != null)
-            height = m_histogram.get(bucket_num);
+        if (0 < bucket_num && bucket_num < m_buckets) {
+            height = m_histogram[bucket_num];
+        }
         //System.out.format("bucket_num:%d " + "height:%d ",bucket_num,height);
 
         if (op == Predicate.Op.EQUALS) {
             contribution = (double) height / m_width;
-        }
-        else if (op == Predicate.Op.NOT_EQUALS) {
+        } else if (op == Predicate.Op.NOT_EQUALS) {
             contribution = (double) m_tuples - height;
-        }
-        // Can group > and >=, < and <= together for estimation purposes
-        else {
+        } else {
             // if op == GREATER_THAN or GREATER_THAN_OR_EQ
             //System.out.format("greater than %d: ",v);
             if (v < m_min) {
                 contribution = m_tuples;
-            }
-            else if (v > m_max) {
+            } else if (v > m_max) {
                 contribution = 0;
-            }
-            else {
+            } else {
                 double frac = (double) height / m_tuples;
                 double right = (bucket_num+1)*m_width + m_min - 1;
                 double part = (right - v) / m_width;
@@ -109,7 +108,7 @@ public class IntHistogram {
                     contribution += (double) height / m_width;
                 }
                 for (int i = bucket_num+1; i < m_buckets; i++) {
-                    height = m_histogram.get(i);
+                    height = m_histogram[i];
                     contribution += height;
                 }
             }
@@ -132,13 +131,15 @@ public class IntHistogram {
      *     implement a more efficient optimization
      * */
     public double avgSelectivity() {
+        /* CODE NOT NEEDED
         int num = 0;
         for (int i : m_histogram.keySet()) {
             int height = m_histogram.get(i);
             num += (height * height);
         }
-
         return num / (m_tuples * m_tuples);
+        */
+        return 1.0;
     }
     
     /**
