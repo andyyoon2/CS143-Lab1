@@ -36,7 +36,7 @@ public class IntHistogram {
         m_tuples = 0;
         m_width = (max-min+1) / buckets;
         if (m_width == 0) { // more buckets than needed
-            m_width = 1;
+        //    m_width = 1;  // TODO: FIX FOR orderOfGrowth() test
         }
 
         // Initialize hashmap
