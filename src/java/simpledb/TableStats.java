@@ -95,6 +95,7 @@ public class TableStats {
         // necessarily have to (for example) do everything
         // in a single scan of the table.
         // some code goes here
+        /*
         m_file = Database.getCatalog().getDatabaseFile(tableid);
         m_mins = new HashMap<Integer, Integer>();
         m_maxs = new HashMap<Integer, Integer>();
@@ -133,6 +134,7 @@ public class TableStats {
                 }
             }
         }
+        */
     }
 
     /**
