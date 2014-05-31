@@ -15,8 +15,9 @@ public class TableStats {
 
     private static final ConcurrentHashMap<String, TableStats> statsMap = new ConcurrentHashMap<String, TableStats>();
 
-    // The DbFile we're scanning
-    DbFile m_file;
+    private HeapFile m_file;    // The DbFile we're scanning
+    private int m_iocostperpage;// IO cost per page
+    private int m_tuples;       // Number of tuples in the file
 
     // Map the field num to their respective min/max values
     private HashMap<Integer, Integer> m_mins;
@@ -94,47 +95,90 @@ public class TableStats {
         // You should try to do this reasonably efficiently, but you don't
         // necessarily have to (for example) do everything
         // in a single scan of the table.
-        // some code goes here
-        /*
-        m_file = Database.getCatalog().getDatabaseFile(tableid);
+        m_file = (HeapFile) Database.getCatalog().getDatabaseFile(tableid);
+        m_iocostperpage = ioCostPerPage;
+        m_tuples = 0;
         m_mins = new HashMap<Integer, Integer>();
         m_maxs = new HashMap<Integer, Integer>();
         m_inthists = new HashMap<Integer, IntHistogram>();
         m_strhists = new HashMap<Integer, StringHistogram>();
         
-        // Scan table, populate histograms
-        TupleDesc td = file.getTupleDesc();
-        DbIterator it = file.iterator(null);    // Arbitrary transaction id?
-        it.open();
-        while(it.hasNext()) {
-            Tuple t = it.next();
-            for (int i = 0; i < td.numFields(); i++) {
-                // Only concerned about int fields for min/max
-                if (td.getFieldType(i).equals(Type.INT_TYPE)) {
-                    int val = t.getField(i).getValue();
-                    if (!m_mins.containsKey(i)) {
-                        // Initial value
-                        m_mins.put(i, val);
-                    }
-                    else {
-                        if (val < m_mins.get(i)) {
-                            // Update with new min value
-                            m_mins.put(i, val); 
+        TupleDesc td = m_file.getTupleDesc();
+        DbFileIterator it = m_file.iterator(null);    // Arbitrary transaction id?
+        try {
+            it.open();
+            // Scan table for min/max values
+            while(it.hasNext()) {
+                Tuple t = it.next();
+                m_tuples++;
+                for (int i = 0; i < td.numFields(); i++) {
+                    // Only concerned about int fields for min/max
+                    if (td.getFieldType(i).equals(Type.INT_TYPE)) {
+                        int val = ((IntField) t.getField(i)).getValue();
+                        if (!m_mins.containsKey(i)) {
+                            // Initial value
+                            m_mins.put(i, val);
+                        } else {
+                            if (val < m_mins.get(i)) {
+                                // Update with new min value
+                                m_mins.put(i, val);
+                            }
                         }
-                    }
 
-                    if (!m_maxs.containsKey(i)) {
-                        m_maxs.put(i, val);
-                    }
-                    else {
-                        if (val > m_maxs.get(i)) {
+                        if (!m_maxs.containsKey(i)) {
                             m_maxs.put(i, val);
+                        } else {
+                            if (val > m_maxs.get(i)) {
+                                m_maxs.put(i, val);
+                            }
                         }
+                    }
+                }// end for
+            }// end while
+        } catch (DbException e) {
+            e.printStackTrace();
+        } catch (TransactionAbortedException e) {
+            e.printStackTrace();
+        }
+
+        // Initialize histograms
+        for (int i = 0; i < td.numFields(); i++) {
+            if (td.getFieldType(i).equals(Type.INT_TYPE)) {
+                int min = m_mins.get(i);
+                int max = m_maxs.get(i);
+                IntHistogram h = new IntHistogram(NUM_HIST_BINS, min, max);
+                m_inthists.put(i, h);
+            } else {// STRING_TYPE
+                StringHistogram h = new StringHistogram(NUM_HIST_BINS);
+                m_strhists.put(i, h);
+            }
+        }
+
+        try {
+            it.rewind();
+            // Scan table again to populate our histograms
+            while(it.hasNext()) {
+                Tuple t = it.next();
+                for (int i = 0; i < td.numFields(); i++) {
+                    if (td.getFieldType(i).equals(Type.INT_TYPE)) {
+                        int val = ((IntField) t.getField(i)).getValue();
+                        IntHistogram h = m_inthists.get(i);
+                        h.addValue(val);
+                        m_inthists.put(i, h);
+                    } else {// STRING_TYPE
+                        String val = ((StringField) t.getField(i)).getValue();
+                        StringHistogram h = m_strhists.get(i);
+                        h.addValue(val);
+                        m_strhists.put(i, h);
                     }
                 }
             }
+        } catch (DbException e) {
+            e.printStackTrace();
+        } catch (TransactionAbortedException e) {
+            e.printStackTrace();
         }
-        */
+        
     }
 
     /**
@@ -150,8 +194,8 @@ public class TableStats {
      * @return The estimated cost of scanning the table.
      */
     public double estimateScanCost() {
-        // some code goes here
-        return 0;
+        int num_pages = m_file.numPages();
+        return num_pages * m_iocostperpage;
     }
 
     /**
@@ -164,8 +208,7 @@ public class TableStats {
      *         selectivityFactor
      */
     public int estimateTableCardinality(double selectivityFactor) {
-        // some code goes here
-        return 0;
+        return (int)(m_tuples * selectivityFactor);
     }
 
     /**
@@ -197,16 +240,22 @@ public class TableStats {
      *         predicate
      */
     public double estimateSelectivity(int field, Predicate.Op op, Field constant) {
-        // some code goes here
-        return 1.0;
+        if (constant.getType().equals(Type.INT_TYPE)) {
+            int val = ((IntField) constant).getValue();
+            IntHistogram h = m_inthists.get(field);
+            return h.estimateSelectivity(op, val);
+        } else {// STRING_TYPE
+            String val = ((StringField) constant).getValue();
+            StringHistogram h = m_strhists.get(field);
+            return h.estimateSelectivity(op, val);
+        }
     }
 
     /**
      * return the total number of tuples in this table
      * */
     public int totalTuples() {
-        // some code goes here
-        return 0;
+        return m_tuples;
     }
 
 }
