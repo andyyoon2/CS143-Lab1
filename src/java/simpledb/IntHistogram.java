@@ -86,7 +86,7 @@ public class IntHistogram {
         if (0 < bucket_num && bucket_num < m_buckets) {
             height = m_histogram[bucket_num];
         }
-        //System.out.format("bucket_num:%d " + "height:%d ",bucket_num,height);
+        System.out.format("bucket_num:%d " + "height:%d ",bucket_num,height);
 
         if (op == Predicate.Op.EQUALS) {
             contribution = (double) height / m_width;
@@ -100,13 +100,20 @@ public class IntHistogram {
             } else if (v > m_max) {
                 contribution = 0;
             } else {
-                double frac = (double) height / m_tuples;
+                double frac = (double) height;
                 double right = (bucket_num+1)*m_width + m_min - 1;
-                double part = (right - v) / m_width;
-                contribution = frac * part;
+                System.out.format("frac is %f. ", frac);
+                System.out.format("right endpoint is %f. ", right);
+                double part;
                 if (op == Predicate.Op.GREATER_THAN_OR_EQ) {
-                    contribution += (double) height / m_width;
+                    part = (right - v + 1) / m_width;
+                    System.out.format("greater than or equal to %d:\n",v);
+                    System.out.format("part is %f.\n",part);
+                } else {
+                    part = (right - v) / m_width;
                 }
+                contribution = frac * part;
+                System.out.format("contribution so far: %f\n",contribution);
                 for (int i = bucket_num+1; i < m_buckets; i++) {
                     height = m_histogram[i];
                     contribution += height;
@@ -118,7 +125,7 @@ public class IntHistogram {
                 contribution = m_tuples - contribution;
             }
         }
-        //System.out.format("%f\n",contribution/m_tuples);
+        System.out.format("%f\n",contribution/m_tuples);
         return contribution / m_tuples;
     }
     
