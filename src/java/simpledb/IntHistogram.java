@@ -84,46 +84,54 @@ public class IntHistogram {
         if (0 < bucket_num && bucket_num < m_buckets) {
             height = m_histogram[bucket_num];
         }
-        System.out.format("bucket_num:%d " + "height:%d ",bucket_num,height);
+        //System.out.format("bucket_num:%d " + "height:%d ",bucket_num,height);
 
         if (op == Predicate.Op.EQUALS) {
             contribution = (double) height / m_width;
         } else if (op == Predicate.Op.NOT_EQUALS) {
             contribution = (double) m_tuples - height;
-        } else {
-            // if op == GREATER_THAN or GREATER_THAN_OR_EQ
-            //System.out.format("greater than %d: ",v);
+        } else if (op == Predicate.Op.GREATER_THAN || op == Predicate.Op.LESS_THAN_OR_EQ) {
+            // Edge cases
             if (v < m_min) {
                 contribution = m_tuples;
             } else if (v > m_max) {
                 contribution = 0;
             } else {
-                double frac = (double) height;
+                // Compute bucket's contribution
                 double right = (bucket_num+1)*m_width + m_min - 1;
-                System.out.format("frac is %f. ", frac);
-                System.out.format("right endpoint is %f. ", right);
-                double part;
-                if (op == Predicate.Op.GREATER_THAN_OR_EQ) {
-                    part = (right - v + 1) / m_width;
-                    System.out.format("greater than or equal to %d:\n",v);
-                    System.out.format("part is %f.\n",part);
-                } else {
-                    part = (right - v) / m_width;
-                }
-                contribution = frac * part;
-                System.out.format("contribution so far: %f\n",contribution);
+                double part = (right - v) / m_width;
+                contribution = (double) height * part;
+                // Sum the rest of the buckets to the right
                 for (int i = bucket_num+1; i < m_buckets; i++) {
                     height = m_histogram[i];
                     contribution += height;
                 }
             }
-            if (op == Predicate.Op.LESS_THAN || op == Predicate.Op.LESS_THAN_OR_EQ) {
+            if (op == Predicate.Op.LESS_THAN_OR_EQ) {
+                // Take the complement of above
+                contribution = m_tuples - contribution;
+            }
+        } else {
+            //System.out.format("greater than %d: ",v);
+            if (v <= m_min) {
+                contribution = m_tuples;
+            } else if (v >= m_max) {
+                contribution = 0;
+            } else {
+                double right = (bucket_num+1)*m_width + m_min - 1;
+                double part = (right - v + 1) / m_width;
+                contribution = (double) height * part;
+                for (int i = bucket_num+1; i < m_buckets; i++) {
+                    height = m_histogram[i];
+                    contribution += height;
+                }
+            }
+            if (op == Predicate.Op.LESS_THAN) {
                 // take complement of above
-                //System.out.format("jk less than: ");
                 contribution = m_tuples - contribution;
             }
         }
-        System.out.format("%f\n",contribution/m_tuples);
+        //System.out.format("%f\n",contribution/m_tuples);
         return contribution / m_tuples;
     }
     
